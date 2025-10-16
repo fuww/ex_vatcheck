@@ -37,7 +37,7 @@ defmodule ExVatcheck.Countries do
 
   @regexes %{
     "AT" => ~r/\AATU[0-9]{8}\Z/u,
-    "BE" => ~r/\ABE0[0-9]{9}\Z/u,
+    "BE" => ~r/\ABE[0-1][0-9]{9}\Z/u,
     "BG" => ~r/\ABG[0-9]{9,10}\Z/u,
     "CY" => ~r/\ACY[0-9]{8}[A-Z]\Z/u,
     "CZ" => ~r/\ACZ[0-9]{8,10}\Z/u,

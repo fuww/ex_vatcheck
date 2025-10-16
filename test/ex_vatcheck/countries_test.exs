@@ -6,6 +6,7 @@ defmodule ExVatcheck.CountriesTest do
   @valid_vats [
     "ATU99999999",
     "BE0999999999",
+    "BE1999999999",
     "BG999999999",
     "BG9999999999",
     "CY99999999L",
