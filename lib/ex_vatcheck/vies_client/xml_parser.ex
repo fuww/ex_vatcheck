@@ -11,7 +11,8 @@ defmodule ExVatcheck.VIESClient.XMLParser do
           request_date: binary,
           valid: boolean,
           name: binary | nil,
-          address: binary | nil
+          address: binary | nil,
+          request_identifier: binary | nil
         }
 
   @check_vat_service_url SweetXml.sigil_x(
@@ -19,7 +20,7 @@ defmodule ExVatcheck.VIESClient.XMLParser do
                          )
 
   @check_vat_fault SweetXml.sigil_x("//env:Envelope/env:Body/env:Fault")
-  @check_vat_response SweetXml.sigil_x("//env:Envelope/env:Body/ns2:checkVatResponse")
+  @check_vat_response SweetXml.sigil_x("//env:Envelope/env:Body/ns2:checkVatApproxResponse")
 
   @check_vat_fault_fields [
     fault: SweetXml.sigil_x("./faultstring/text()")
@@ -30,8 +31,9 @@ defmodule ExVatcheck.VIESClient.XMLParser do
     vat_number: SweetXml.sigil_x("./ns2:vatNumber/text()"),
     request_date: SweetXml.sigil_x("./ns2:requestDate/text()"),
     valid: SweetXml.sigil_x("./ns2:valid/text()"),
-    name: SweetXml.sigil_x("./ns2:name/text()"),
-    address: SweetXml.sigil_x("./ns2:address/text()")
+    name: SweetXml.sigil_x("./ns2:traderName/text()"),
+    address: SweetXml.sigil_x("./ns2:traderAddress/text()"),
+    request_identifier: SweetXml.sigil_x("./ns2:requestIdentifier/text()")
   ]
 
   @doc ~S"""
@@ -60,20 +62,22 @@ defmodule ExVatcheck.VIESClient.XMLParser do
 
   @doc ~S"""
   The `parse_response/1` function parses the XML response returned by requests to
-  the checkVatService.
+  the checkVatApprox operation of the checkVatService.
 
   When the service is available, the response has the following structure:
   ```
   <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
     <env:Body>
-      <ns2:checkVatResponse xmlns="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
-        <ns2:countryCode>BE</countryCode>
-        <ns2:vatNumber>0829071668</vatNumber>
-        <ns2:requestDate>2016-01-16+01:00</requestDate>
-        <ns2:valid>true</valid>
-        <ns2:name>SPRL BIGUP</name>
-        <ns2:address>RUE LONGUE 93 1320 BEAUVECHAIN</address>
-      </ns2:checkVatResponse>
+      <ns2:checkVatApproxResponse xmlns:ns2="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
+        <ns2:countryCode>BE</ns2:countryCode>
+        <ns2:vatNumber>0829071668</ns2:vatNumber>
+        <ns2:requestDate>2016-01-16+01:00</ns2:requestDate>
+        <ns2:valid>true</ns2:valid>
+        <ns2:traderName>SPRL BIGUP</ns2:traderName>
+        <ns2:traderCompanyType>---</ns2:traderCompanyType>
+        <ns2:traderAddress>RUE LONGUE 93 1320 BEAUVECHAIN</ns2:traderAddress>
+        <ns2:requestIdentifier>WAPIAAAAaEhFZlcT</ns2:requestIdentifier>
+      </ns2:checkVatApproxResponse>
     </env:Body>
   </env:Envelope>
   ```
@@ -113,20 +117,17 @@ defmodule ExVatcheck.VIESClient.XMLParser do
     %{
       country_code: format_field(body.country_code),
       vat_number: format_field(body.vat_number),
-      request_date: body.request_date |> format_field() |> format_date(),
+      request_date: format_field(body.request_date),
       valid: body.valid == ~c"true",
       name: format_field(body.name),
-      address: format_field(body.address)
+      address: format_field(body.address),
+      request_identifier: format_field(body.request_identifier)
     }
   end
 
   @spec format_field(charlist | nil) :: binary | nil
   defp format_field(nil), do: nil
   defp format_field(charlist), do: to_string(charlist)
-
-  @spec format_date(binary) :: binary
-  defp format_date(<<date::binary-size(10), "+", _time::binary-size(5)>>), do: date
-  defp format_date(date), do: date
 
   @spec format_fault(binary) :: binary
   defp format_fault(fault) do

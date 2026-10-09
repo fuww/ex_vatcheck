@@ -20,6 +20,10 @@ defmodule ExVatcheck.VIESClient do
   Queries the VIES service to determine whether or not the provided VAT
   identification number is valid.
 
+  When `config :ex_vatcheck, requester_vat_number: "NL123456789B01"` is set, the
+  request is made on behalf of that VAT number so that VIES returns a
+  consultation number as `request_identifier`.
+
   Returns `{:ok, response}` in the case of a successful call to the service, and
   `{:error, error}` in the case that the service could not be reached or the XML
   response could not be parsed.
@@ -56,14 +60,25 @@ defmodule ExVatcheck.VIESClient do
     <?xml version="1.0" encoding="UTF-8"?>
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
       <soap:Body>
-        <ns1:checkVat>
+        <ns1:checkVatApprox>
           <ns1:countryCode>#{country_code}</ns1:countryCode>
           <ns1:vatNumber>#{vat_number}</ns1:vatNumber>
-        </ns1:checkVat>
+          #{requester_fields(Application.get_env(:ex_vatcheck, :requester_vat_number))}
+        </ns1:checkVatApprox>
       </soap:Body>
     </soap:Envelope>
     """
   end
+
+  # VIES only issues a consultation number (requestIdentifier) when the
+  # requester identifies itself with its own VAT number.
+  @spec requester_fields(binary | nil) :: binary
+  defp requester_fields(<<country_code::binary-size(2), vat_number::binary>>) do
+    "<ns1:requesterCountryCode>#{country_code}</ns1:requesterCountryCode>" <>
+      "<ns1:requesterVatNumber>#{vat_number}</ns1:requesterVatNumber>"
+  end
+
+  defp requester_fields(nil), do: ""
 
   # NOTE: VIES currently sends back an invalid URL in the client which uses http
   #       instead of https, which they have recently updated to.

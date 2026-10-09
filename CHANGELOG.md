@@ -1,3 +1,13 @@
+#### 0.4.0 (2026-10-09)
+
+##### Breaking Changes
+
+* Calls the VIES `checkVatApprox` operation instead of `checkVat`. With
+    `config :ex_vatcheck, requester_vat_number: "NL123456789B01"` set, VIES
+    returns a consultation number as `vies_response.request_identifier`.
+* `vies_response.request_date` keeps the timezone VIES returns
+    (e.g. `"2019-04-06+02:00"`).
+
 #### 0.3.1 (2022-08-31)
 
 ##### Bug Fixes

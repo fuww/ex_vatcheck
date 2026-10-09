@@ -10,19 +10,21 @@ defmodule ExVatcheckTest do
   @valid_vat_response %{
     country_code: "GB",
     vat_number: "333289454",
-    request_date: "2016-01-16",
+    request_date: "2016-01-16+01:00",
     valid: true,
     name: "BRITISH BROADCASTING CORPORATION",
-    address: "BC0 B1 D1 BROADCAST CENTRE\nWHITE CITY PLACE\n201 WOOD LANE\nLONDON\n\nW12 7TP"
+    address: "BC0 B1 D1 BROADCAST CENTRE\nWHITE CITY PLACE\n201 WOOD LANE\nLONDON\n\nW12 7TP",
+    request_identifier: "WAPIAAAAaEhFZlcT"
   }
 
   @invalid_vat_response %{
     country_code: "GB",
     vat_number: nil,
-    request_date: "2016-01-16",
+    request_date: "2016-01-16+00:00",
     valid: false,
     name: "---",
-    address: "---"
+    address: "---",
+    request_identifier: nil
   }
 
   describe "check/1" do
@@ -94,6 +96,9 @@ defmodule ExVatcheckTest do
 
     @tag external: true
     test "Smoke check" do
+      Application.put_env(:ex_vatcheck, :requester_vat_number, "NL808503558B01")
+      on_exit(fn -> Application.delete_env(:ex_vatcheck, :requester_vat_number) end)
+
       assert %ExVatcheck.VAT{
                exists: true,
                valid: true,
@@ -103,6 +108,7 @@ defmodule ExVatcheckTest do
                  country_code: "AT",
                  name: "ams-OSRAM AG",
                  request_date: _date,
+                 request_identifier: <<_, _::binary>>,
                  valid: true,
                  vat_number: "U28560205"
                }
