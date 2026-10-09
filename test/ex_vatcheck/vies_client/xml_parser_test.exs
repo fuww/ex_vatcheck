@@ -36,7 +36,7 @@ defmodule ExVatcheck.VIESClient.XMLParserTest do
   end
 
   describe "parse_response/1" do
-    test "parses the XML response from the checkVatService into a map" do
+    test "parses the XML response from the checkVat operation into a map" do
       response = """
       <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
         <env:Body>
@@ -64,18 +64,77 @@ defmodule ExVatcheck.VIESClient.XMLParserTest do
       assert XMLParser.parse_response(response) == {:ok, expected}
     end
 
-    test "parses the XML response for invalid VAT identifcation number" do
+    test "keeps nil values when present in the checkVat response" do
       response = """
       <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
         <env:Body>
           <ns2:checkVatResponse xmlns:ns2="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
+            <ns2:countryCode>BG</ns2:countryCode>
+            <ns2:vatNumber>451158821</ns2:vatNumber>
+            <ns2:requestDate>2016-01-16+01:00</ns2:requestDate>
+            <ns2:valid>false</ns2:valid>
+            <ns2:name></ns2:name>
+            <ns2:address></ns2:address>
+          </ns2:checkVatResponse>
+        </env:Body>
+      </env:Envelope>
+      """
+
+      expected = %{
+        country_code: "BG",
+        vat_number: "451158821",
+        request_date: "2016-01-16",
+        valid: false,
+        name: nil,
+        address: nil
+      }
+
+      assert XMLParser.parse_response(response) == {:ok, expected}
+    end
+
+    test "parses the XML response from the checkVatApprox operation into a map" do
+      response = """
+      <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+        <env:Body>
+          <ns2:checkVatApproxResponse xmlns:ns2="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
+            <ns2:countryCode>BE</ns2:countryCode>
+            <ns2:vatNumber>0829071668</ns2:vatNumber>
+            <ns2:requestDate>2016-01-16+01:00</ns2:requestDate>
+            <ns2:valid>true</ns2:valid>
+            <ns2:traderName>SPRL BIGUP</ns2:traderName>
+            <ns2:traderAddress>RUE LONGUE 93 1320 BEAUVECHAIN</ns2:traderAddress>
+            <ns2:requestIdentifier>WAPIAAAAaEhFZlcT</ns2:requestIdentifier>
+          </ns2:checkVatApproxResponse>
+        </env:Body>
+      </env:Envelope>
+      """
+
+      expected = %{
+        country_code: "BE",
+        vat_number: "0829071668",
+        request_date: "2016-01-16",
+        valid: true,
+        name: "SPRL BIGUP",
+        address: "RUE LONGUE 93 1320 BEAUVECHAIN",
+        request_identifier: "WAPIAAAAaEhFZlcT"
+      }
+
+      assert XMLParser.parse_response(response) == {:ok, expected}
+    end
+
+    test "parses the XML response for invalid VAT identifcation number" do
+      response = """
+      <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+        <env:Body>
+          <ns2:checkVatApproxResponse xmlns:ns2="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
             <ns2:countryCode>BE</ns2:countryCode>
             <ns2:vatNumber>123123123</ns2:vatNumber>
             <ns2:requestDate>2016-01-16+01:00</ns2:requestDate>
             <ns2:valid>false</ns2:valid>
-            <ns2:name>---</ns2:name>
-            <ns2:address>---</ns2:address>
-          </ns2:checkVatResponse>
+            <ns2:traderName>---</ns2:traderName>
+            <ns2:traderAddress>---</ns2:traderAddress>
+            <ns2:requestIdentifier></ns2:requestIdentifier>
+          </ns2:checkVatApproxResponse>
         </env:Body>
       </env:Envelope>
       """
@@ -86,24 +145,25 @@ defmodule ExVatcheck.VIESClient.XMLParserTest do
         request_date: "2016-01-16",
         valid: false,
         name: "---",
-        address: "---"
+        address: "---",
+        request_identifier: nil
       }
 
       assert XMLParser.parse_response(response) == {:ok, expected}
     end
 
-    test "correctly keeps nil values when present in checkVat response" do
+    test "correctly keeps nil values when present in checkVatApprox response" do
       response = """
       <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
         <env:Body>
-          <ns2:checkVatResponse xmlns:ns2="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
+          <ns2:checkVatApproxResponse xmlns:ns2="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
             <ns2:countryCode>BG</ns2:countryCode>
             <ns2:vatNumber>451158821</ns2:vatNumber>
             <ns2:requestDate>2016-01-16+01:00</ns2:requestDate>
             <ns2:valid>false</ns2:valid>
-            <ns2:name></ns2:name>
-            <ns2:address></ns2:address>
-          </ns2:checkVatResponse>
+            <ns2:traderName></ns2:traderName>
+            <ns2:traderAddress></ns2:traderAddress>
+          </ns2:checkVatApproxResponse>
         </env:Body>
       </env:Envelope>
       """
@@ -114,35 +174,8 @@ defmodule ExVatcheck.VIESClient.XMLParserTest do
         request_date: "2016-01-16",
         valid: false,
         name: nil,
-        address: nil
-      }
-
-      assert XMLParser.parse_response(response) == {:ok, expected}
-    end
-
-    test "gracefully handles unexpected date formats" do
-      response = """
-      <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
-        <env:Body>
-          <ns2:checkVatResponse xmlns:ns2="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
-            <ns2:countryCode>BG</ns2:countryCode>
-            <ns2:vatNumber>451158821</ns2:vatNumber>
-            <ns2:requestDate>2016-01</ns2:requestDate>
-            <ns2:valid>false</ns2:valid>
-            <ns2:name></ns2:name>
-            <ns2:address></ns2:address>
-          </ns2:checkVatResponse>
-        </env:Body>
-      </env:Envelope>
-      """
-
-      expected = %{
-        country_code: "BG",
-        vat_number: "451158821",
-        request_date: "2016-01",
-        valid: false,
-        name: nil,
-        address: nil
+        address: nil,
+        request_identifier: nil
       }
 
       assert XMLParser.parse_response(response) == {:ok, expected}
@@ -180,14 +213,14 @@ defmodule ExVatcheck.VIESClient.XMLParserTest do
       unexpected_namespaces = """
         <soap:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
-            <ns1:checkVatResponse xmlns:ns1="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
+            <ns1:checkVatApproxResponse xmlns:ns1="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
               <ns1:countryCode>BG</ns1:countryCode>
               <ns1:vatNumber>451158821</ns1:vatNumber>
               <ns1:requestDate>2016-01</ns1:requestDate>
               <ns1:valid>false</ns1:valid>
-              <ns1:name></ns1:name>
-              <ns1:address></ns1:address>
-            </ns1:checkVatResponse>
+              <ns1:traderName></ns1:traderName>
+              <ns1:traderAddress></ns1:traderAddress>
+            </ns1:checkVatApproxResponse>
           </soap:Body>
         </soap:Envelope>
       """

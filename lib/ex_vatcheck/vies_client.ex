@@ -20,6 +20,10 @@ defmodule ExVatcheck.VIESClient do
   Queries the VIES service to determine whether or not the provided VAT
   identification number is valid.
 
+  When `config :ex_vatcheck, requester_vat_number: "NL123456789B01"` is set, the
+  request is made on behalf of that VAT number so that VIES returns a
+  consultation number as `request_identifier`.
+
   Returns `{:ok, response}` in the case of a successful call to the service, and
   `{:error, error}` in the case that the service could not be reached or the XML
   response could not be parsed.
@@ -50,8 +54,19 @@ defmodule ExVatcheck.VIESClient do
     end
   end
 
+  # When a requester VAT number is configured, use checkVatApprox so that VIES
+  # issues a consultation number; otherwise fall back to the plain checkVat
+  # operation, preserving the original (non-breaking) behaviour.
   @spec vat_request(binary, binary) :: binary
   defp vat_request(country_code, vat_number) do
+    case Application.get_env(:ex_vatcheck, :requester_vat_number) do
+      nil -> check_vat_request(country_code, vat_number)
+      requester -> check_vat_approx_request(country_code, vat_number, requester)
+    end
+  end
+
+  @spec check_vat_request(binary, binary) :: binary
+  defp check_vat_request(country_code, vat_number) do
     """
     <?xml version="1.0" encoding="UTF-8"?>
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
@@ -63,6 +78,30 @@ defmodule ExVatcheck.VIESClient do
       </soap:Body>
     </soap:Envelope>
     """
+  end
+
+  @spec check_vat_approx_request(binary, binary, binary) :: binary
+  defp check_vat_approx_request(country_code, vat_number, requester) do
+    """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
+      <soap:Body>
+        <ns1:checkVatApprox>
+          <ns1:countryCode>#{country_code}</ns1:countryCode>
+          <ns1:vatNumber>#{vat_number}</ns1:vatNumber>
+          #{requester_fields(requester)}
+        </ns1:checkVatApprox>
+      </soap:Body>
+    </soap:Envelope>
+    """
+  end
+
+  # VIES only issues a consultation number (requestIdentifier) when the
+  # requester identifies itself with its own VAT number.
+  @spec requester_fields(binary) :: binary
+  defp requester_fields(<<country_code::binary-size(2), vat_number::binary>>) do
+    "<ns1:requesterCountryCode>#{country_code}</ns1:requesterCountryCode>" <>
+      "<ns1:requesterVatNumber>#{vat_number}</ns1:requesterVatNumber>"
   end
 
   # NOTE: VIES currently sends back an invalid URL in the client which uses http

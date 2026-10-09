@@ -43,6 +43,36 @@ defmodule ExVatcheck.VIESClientTest do
   end
 
   describe "check_vat/3" do
+    setup :verify_on_exit!
+
+    test "requests checkVatApprox on behalf of the configured requester" do
+      client = %VIESClient{url: VIESResponses.service_url()}
+      Application.put_env(:ex_vatcheck, :requester_vat_number, "NL123456789B01")
+      on_exit(fn -> Application.delete_env(:ex_vatcheck, :requester_vat_number) end)
+
+      expect(HTTPoison, :post, fn _, body, _ ->
+        assert body =~ "<ns1:checkVatApprox>"
+        assert body =~ "<ns1:requesterCountryCode>NL</ns1:requesterCountryCode>"
+        assert body =~ "<ns1:requesterVatNumber>123456789B01</ns1:requesterVatNumber>"
+        {:ok, %HTTPoison.Response{body: VIESResponses.valid_vat_approx_response()}}
+      end)
+
+      VIESClient.check_vat(client, "GB", "333289454")
+    end
+
+    test "uses checkVat and omits the requester when none is configured" do
+      client = %VIESClient{url: VIESResponses.service_url()}
+
+      expect(HTTPoison, :post, fn _, body, _ ->
+        assert body =~ "<ns1:checkVat>"
+        refute body =~ "checkVatApprox"
+        refute body =~ "requester"
+        {:ok, %HTTPoison.Response{body: VIESResponses.valid_vat_response()}}
+      end)
+
+      VIESClient.check_vat(client, "GB", "333289454")
+    end
+
     test "correctly verifies a valid VAT identification number" do
       client = %VIESClient{url: VIESResponses.service_url()}
 
@@ -79,6 +109,28 @@ defmodule ExVatcheck.VIESClientTest do
       end)
 
       assert VIESClient.check_vat(client, "GB", "123123123") == {:ok, expected}
+    end
+
+    test "returns the consultation number when a requester is configured" do
+      client = %VIESClient{url: VIESResponses.service_url()}
+      Application.put_env(:ex_vatcheck, :requester_vat_number, "NL123456789B01")
+      on_exit(fn -> Application.delete_env(:ex_vatcheck, :requester_vat_number) end)
+
+      expected = %{
+        country_code: "GB",
+        vat_number: "333289454",
+        request_date: "2016-01-16",
+        valid: true,
+        name: "BRITISH BROADCASTING CORPORATION",
+        address: "BC0 B1 D1 BROADCAST CENTRE\nWHITE CITY PLACE\n201 WOOD LANE\nLONDON\n\nW12 7TP",
+        request_identifier: "WAPIAAAAaEhFZlcT"
+      }
+
+      stub(HTTPoison, :post, fn _, _, _ ->
+        {:ok, %HTTPoison.Response{body: VIESResponses.valid_vat_approx_response()}}
+      end)
+
+      assert VIESClient.check_vat(client, "GB", "333289454") == {:ok, expected}
     end
 
     test "handles invalid VAT response if ExVatcheck validation misses it" do

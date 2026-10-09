@@ -24,6 +24,31 @@ iex(1)> ExVatcheck.check("GB333289454")
 }
 ```
 
+### Consultation number (optional)
+
+VIES only issues a consultation number (`request_identifier`) when the request
+is made on behalf of a VAT number. This is opt-in — configure your own requester
+VAT number:
+
+```elixir
+config :ex_vatcheck, requester_vat_number: "NL123456789B01"
+```
+
+When configured, `check/1` uses the `checkVatApprox` operation and the response
+additionally includes `request_identifier`:
+
+```elixir
+vies_response: %{
+  address: "BC0 B1 D1 BROADCAST CENTRE\nWHITE CITY PLACE\n201 WOOD LANE\nLONDON\n\nW12 7TP",
+  country_code: "GB",
+  name: "BRITISH BROADCASTING CORPORATION",
+  request_date: "2019-04-06",
+  request_identifier: "WAPIAAAAaEhFZlcT",
+  valid: true,
+  vat_number: "333289454"
+}
+```
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed

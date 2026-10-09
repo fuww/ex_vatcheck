@@ -94,6 +94,9 @@ defmodule ExVatcheckTest do
 
     @tag external: true
     test "Smoke check" do
+      Application.put_env(:ex_vatcheck, :requester_vat_number, "NL123456789B01")
+      on_exit(fn -> Application.delete_env(:ex_vatcheck, :requester_vat_number) end)
+
       assert %ExVatcheck.VAT{
                exists: true,
                valid: true,
@@ -103,6 +106,7 @@ defmodule ExVatcheckTest do
                  country_code: "AT",
                  name: "ams-OSRAM AG",
                  request_date: _date,
+                 request_identifier: <<_, _::binary>>,
                  valid: true,
                  vat_number: "U28560205"
                }
